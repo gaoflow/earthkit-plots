@@ -1,0 +1,130 @@
+# Copyright 2024-, European Centre for Medium Range Weather Forecasts.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import earthkit.data
+import pytest
+
+import earthkit.plots
+from earthkit.plots import schema
+
+
+@pytest.mark.mpl_image
+@pytest.mark.mpl_image_compare(style=schema.to_stylesheet(include_style_sheet=False))
+def test_healpix_grid_cells():
+    data = earthkit.data.from_source("sample", "healpix-h128-nested-2t.grib")
+    chart = earthkit.plots.Map(domain="Europe")
+    chart.grid_cells(data, units="celsius")
+
+    chart.legend()
+    chart.coastlines()
+    chart.title()
+    chart.gridlines()
+
+    return chart.fig
+
+
+@pytest.mark.mpl_image
+@pytest.mark.mpl_image_compare(style=schema.to_stylesheet(include_style_sheet=False))
+def test_healpix_contourf():
+    data = earthkit.data.from_source("sample", "healpix-h128-nested-2t.grib")
+    chart = earthkit.plots.Map(domain="Europe")
+    chart.contourf(data, units="celsius")
+
+    chart.legend()
+    chart.coastlines()
+    chart.title()
+    chart.gridlines()
+
+    return chart.fig
+
+
+@pytest.mark.mpl_image
+@pytest.mark.mpl_image_compare(style=schema.to_stylesheet(include_style_sheet=False))
+def test_healpix_point_cloud():
+    data = earthkit.data.from_source("sample", "healpix-h128-nested-2t.grib")
+    chart = earthkit.plots.Map(domain="Europe")
+    chart.point_cloud(data, units="celsius")
+
+    chart.legend()
+    chart.coastlines()
+    chart.title()
+    chart.gridlines()
+
+    return chart.fig
+
+
+# ---------------------------------------------------------------------------
+# Octahedral reduced Gaussian
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.mpl_image
+@pytest.mark.mpl_image_compare(style=schema.to_stylesheet(include_style_sheet=False))
+def test_octahedral_grid_cells():
+    data = earthkit.data.from_source("sample", "O32_t2.grib2")
+    chart = earthkit.plots.Map(domain="Europe")
+    chart.grid_cells(data, units="celsius")
+
+    chart.legend()
+    chart.coastlines()
+    chart.title()
+    chart.gridlines()
+
+    return chart.fig
+
+
+@pytest.mark.mpl_image
+@pytest.mark.mpl_image_compare(style=schema.to_stylesheet(include_style_sheet=False))
+def test_octahedral_contourf():
+    data = earthkit.data.from_source("sample", "O32_t2.grib2")
+    chart = earthkit.plots.Map(domain="Europe")
+    chart.contourf(data, units="celsius")
+
+    chart.legend()
+    chart.coastlines()
+    chart.title()
+    chart.gridlines()
+
+    return chart.fig
+
+# TODO: Uncomment when ORCA grid support is fixed in eccodes/eckit
+
+# @pytest.mark.mpl_image
+# @pytest.mark.mpl_image_compare(style=schema.to_stylesheet(include_style_sheet=False))
+# def test_orca_grid_cells():
+#     data = earthkit.data.from_source("sample", "orca.grib")
+#     chart = earthkit.plots.Map(domain=[0, 15, 35, 45])
+#     chart.grid_cells(data)
+
+#     chart.legend()
+#     chart.coastlines()
+#     chart.title()
+#     chart.gridlines()
+
+#     return chart.fig
+
+
+# @pytest.mark.mpl_image
+# @pytest.mark.mpl_image_compare(style=schema.to_stylesheet(include_style_sheet=False))
+# def test_orca_point_cloud():
+#     data = earthkit.data.from_source("sample", "orca.grib")
+#     chart = earthkit.plots.Map(domain=[0, 15, 35, 45])
+#     chart.point_cloud(data)
+
+#     chart.legend()
+#     chart.coastlines()
+#     chart.title()
+#     chart.gridlines()
+
+#     return chart.fig
