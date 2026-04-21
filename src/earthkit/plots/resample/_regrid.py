@@ -104,6 +104,12 @@ class _MirRegridExecutor:
         if isinstance(in_grid, dict) and "icon" in in_grid.get("grid", "").lower():
             _kwargs["interpolation"] = "nn"
         LOG.debug("Regridding using MIR, in_grid=%s out_grid=%s", in_grid, out_grid)
+        # Suppress noisy warnings from earthkit-geo's precomputed backend, which
+        # logs a warning for every matrix inventory entry it cannot parse (e.g.
+        # ORCA entries that require downloading atlas files).
+        _ek_geo_logger = logging.getLogger("earthkit.geo")
+        _prev_level = _ek_geo_logger.level
+        _ek_geo_logger.setLevel(logging.ERROR)
         try:
             # Attempt to regrid using precomputed weights if possible, which is often faster
             r = regrid(
@@ -116,6 +122,8 @@ class _MirRegridExecutor:
         except ValueError:
             # Fall back to mir regridding if precomputed weights are not available for this grid pair
             r = regrid(array, in_grid=in_grid, out_grid=out_grid, **_kwargs)
+        finally:
+            _ek_geo_logger.setLevel(_prev_level)
         return r[0]
 
 
