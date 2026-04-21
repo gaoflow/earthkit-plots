@@ -106,16 +106,24 @@ class _MirRegridExecutor:
             _kwargs["interpolation"] = "nn"
         LOG.debug("Regridding using MIR, in_grid=%s out_grid=%s", in_grid, out_grid)
         try:
-            # The precomputed backend scans its entire matrix inventory, and some
-            # entries (e.g. ORCA grids) emit C++ assertion failures directly to
-            # stderr when they can't be parsed in restricted network environments.
-            # Redirect stderr at the OS level for the duration of the scan so this
-            # noise doesn't surface to the user.
+            # The precomputed backend scans its entire matrix inventory. Entries for
+            # grids like ORCA require network downloads just to parse their gridspec,
+            # which produces noisy LOG.exception() tracebacks and C++ stderr output
+            # in restricted network environments (e.g. JupyterHub).
+            # Suppress by: silencing the specific earthkit-geo logger, and redirecting
+            # the OS-level stderr fd to /dev/null for the C++ output.
+            import sys
+
+            _db_logger = logging.getLogger("earthkit.geo.regrid.backends.db")
+            _prev_level = _db_logger.level
+            _db_logger.setLevel(logging.CRITICAL)
             with open(os.devnull, "w") as devnull:
                 stderr_fd = 2
                 saved_fd = os.dup(stderr_fd)
+                saved_sys_stderr = sys.stderr
                 try:
                     os.dup2(devnull.fileno(), stderr_fd)
+                    sys.stderr = devnull
                     r = regrid(
                         array,
                         in_grid=in_grid,
@@ -128,6 +136,8 @@ class _MirRegridExecutor:
                 finally:
                     os.dup2(saved_fd, stderr_fd)
                     os.close(saved_fd)
+                    sys.stderr = saved_sys_stderr
+                    _db_logger.setLevel(_prev_level)
         except Exception:
             r = None
 
