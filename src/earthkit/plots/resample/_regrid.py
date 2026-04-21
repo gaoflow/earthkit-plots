@@ -114,6 +114,8 @@ class _MirRegridExecutor:
             # the OS-level stderr fd to /dev/null for the C++ output.
             import sys
 
+            from earthkit.geo.regrid.backends.db import SYS_DB
+
             _db_logger = logging.getLogger("earthkit.geo.regrid.backends.db")
             _prev_level = _db_logger.level
             _db_logger.setLevel(logging.CRITICAL)
@@ -124,6 +126,12 @@ class _MirRegridExecutor:
                 try:
                     os.dup2(devnull.fileno(), stderr_fd)
                     sys.stderr = devnull
+                    # Force the matrix index to load inside the redirect so that
+                    # any C++ stderr output from parsing ORCA entries (which require
+                    # network downloads) is suppressed. The index is a module-level
+                    # singleton and is only loaded once, so this is a no-op on
+                    # subsequent calls.
+                    _ = SYS_DB.index
                     r = regrid(
                         array,
                         in_grid=in_grid,
