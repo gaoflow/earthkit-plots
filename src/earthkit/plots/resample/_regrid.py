@@ -96,6 +96,7 @@ class _MirRegridExecutor:
     @staticmethod
     def call(array, in_grid, out_grid):
         import logging
+        import os
 
         from earthkit.geo.regrid.array import regrid
 
@@ -104,26 +105,35 @@ class _MirRegridExecutor:
         if isinstance(in_grid, dict) and "icon" in in_grid.get("grid", "").lower():
             _kwargs["interpolation"] = "nn"
         LOG.debug("Regridding using MIR, in_grid=%s out_grid=%s", in_grid, out_grid)
-        # Suppress noisy warnings from earthkit-geo's precomputed backend, which
-        # logs a warning for every matrix inventory entry it cannot parse (e.g.
-        # ORCA entries that require downloading atlas files).
-        _ek_geo_logger = logging.getLogger("earthkit.geo")
-        _prev_level = _ek_geo_logger.level
-        _ek_geo_logger.setLevel(logging.ERROR)
         try:
-            # Attempt to regrid using precomputed weights if possible, which is often faster
-            r = regrid(
-                array,
-                in_grid=in_grid,
-                out_grid=out_grid,
-                backend="precomputed",
-                **_kwargs,
-            )
-        except ValueError:
+            # The precomputed backend scans its entire matrix inventory, and some
+            # entries (e.g. ORCA grids) emit C++ assertion failures directly to
+            # stderr when they can't be parsed in restricted network environments.
+            # Redirect stderr at the OS level for the duration of the scan so this
+            # noise doesn't surface to the user.
+            with open(os.devnull, "w") as devnull:
+                stderr_fd = 2
+                saved_fd = os.dup(stderr_fd)
+                try:
+                    os.dup2(devnull.fileno(), stderr_fd)
+                    r = regrid(
+                        array,
+                        in_grid=in_grid,
+                        out_grid=out_grid,
+                        backend="precomputed",
+                        **_kwargs,
+                    )
+                except ValueError:
+                    r = None
+                finally:
+                    os.dup2(saved_fd, stderr_fd)
+                    os.close(saved_fd)
+        except Exception:
+            r = None
+
+        if r is None:
             # Fall back to mir regridding if precomputed weights are not available for this grid pair
             r = regrid(array, in_grid=in_grid, out_grid=out_grid, **_kwargs)
-        finally:
-            _ek_geo_logger.setLevel(_prev_level)
         return r[0]
 
 
