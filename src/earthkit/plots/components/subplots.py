@@ -1544,7 +1544,8 @@ class Subplot:
         Parameters
         ----------
         data : list, numpy.ndarray, xarray.DataArray, or earthkit.data.core.Base, optional
-            The data to plot. If None, x and y must be provided.
+            The data to plot. If None, x and y must be provided. Pass a list of
+            arrays/DataArrays to plot multiple series side-by-side or stacked.
         x : str, list, numpy.ndarray, or xarray.DataArray, optional
             The x values to plot. If data is provided, this is assumed to be the
             name of a coordinate in the data. If None, data must be provided.
@@ -1559,6 +1560,13 @@ class Subplot:
             conversion relies on CF-compliant ``units`` metadata in the data.
             See :doc:`/examples/examples/introduction/08-unit-conversion` for
             examples.
+        mode : str, optional
+            How to arrange multiple series when ``data`` is a list. Either
+            ``"grouped"`` (default, bars placed side-by-side) or ``"stacked"``
+            (bars stacked on top of each other).
+        colors : list, optional
+            Colours to cycle over when ``data`` is a list. Defaults to the
+            matplotlib prop cycle.
 
         **kwargs
             Additional keyword arguments passed to

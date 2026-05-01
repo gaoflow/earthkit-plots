@@ -1259,6 +1259,7 @@ def plot_1D(method_name=None):
             markers=None,
             sizes=None,
             label=None,
+            mode=None,
             **kwargs,
         ):
             from itertools import product
@@ -1282,6 +1283,100 @@ def plot_1D(method_name=None):
                 markerby = kwargs.pop("marker_by", None)
             if sizeby is None:
                 sizeby = kwargs.pop("size_by", None)
+
+            # ------------------------------------------------------------------
+            # List-input path: bar([data_1, data_2], mode="grouped"|"stacked")
+            # Iterates over a list of datasets without requiring a shared
+            # coordinate dimension. mode defaults to "grouped".
+            # ------------------------------------------------------------------
+            data_arg = args[0] if args else None
+            if isinstance(data_arg, list) and len(data_arg) > 0:
+                active_mode = mode if mode is not None else "grouped"
+                if active_mode not in ("grouped", "stacked"):
+                    raise ValueError(f"mode must be 'grouped' or 'stacked', got {active_mode!r}")
+
+                series_list = data_arg
+                rest_args = args[1:]
+                n = len(series_list)
+
+                from matplotlib import rcParams
+
+                prop_cycle_colors = [p["color"] for p in rcParams["axes.prop_cycle"]]
+
+                # Resolve per-series colors from user-supplied list/cycle or prop cycle.
+                if colors is not None:
+                    color_cycle = list(colors)
+                    series_colors = [color_cycle[i % len(color_cycle)] for i in range(n)]
+                else:
+                    series_colors = [prop_cycle_colors[i % len(prop_cycle_colors)] for i in range(n)]
+
+                # For stacked mode, track the running bottom per x position.
+                # We accumulate using the BarContainer.datavalues after each call.
+                stacked_bottom = None
+
+                for i, series in enumerate(series_list):
+                    call_kwargs = dict(kwargs)
+                    call_kwargs["color"] = series_colors[i]
+
+                    # Derive series label: explicit label= wins, then DataArray name, then fallback.
+                    if label is not None:
+                        call_kwargs["label"] = label
+                    elif hasattr(series, "name") and series.name is not None:
+                        call_kwargs["label"] = str(series.name)
+                    else:
+                        call_kwargs["label"] = f"Series {i + 1}"
+
+                    if active_mode == "grouped":
+                        # Width and offset are computed in x-axis data units.
+                        # We need x values to determine spacing, so build a
+                        # temporary source just to read them.
+                        _ctx = _infer_plot_context(self, method_name or method.__name__)
+                        _src = get_source(series, *rest_args, x=x, y=y, z=z, context=_ctx)
+                        x_raw = _src.x.values
+
+                        # Compute the typical spacing between x positions.
+                        if len(x_raw) > 1:
+                            diffs = np.diff(x_raw.astype("datetime64[ns]").astype(np.float64) if np.issubdtype(x_raw.dtype, np.datetime64) else x_raw.astype(np.float64))
+                            spacing = float(np.median(diffs))
+                        else:
+                            spacing = 1.0
+
+                        bar_width = spacing / n * 0.9
+                        # Centre the group: offset so bars sit symmetrically around the original x.
+                        offset = (i - (n - 1) / 2) * bar_width
+
+                        if np.issubdtype(x_raw.dtype, np.datetime64):
+                            # Datetime axes: offset is in nanoseconds (float), convert back.
+                            x_shifted = (x_raw.astype("datetime64[ns]").astype(np.float64) + offset).astype("datetime64[ns]")
+                            call_kwargs["x"] = x_shifted
+                            call_kwargs["width"] = pd.Timedelta(bar_width, unit="ns")
+                        else:
+                            call_kwargs["x"] = x_raw + offset
+                            call_kwargs["width"] = bar_width
+
+                    elif active_mode == "stacked":
+                        if stacked_bottom is not None:
+                            call_kwargs["bottom"] = stacked_bottom
+
+                    extract_plottables_1D(
+                        self,
+                        method_name or method.__name__,
+                        args=(series, *rest_args),
+                        x=call_kwargs.pop("x", x),
+                        y=y,
+                        z=z,
+                        style=style,
+                        every=every,
+                        resample=resample,
+                        **call_kwargs,
+                    )
+
+                    if active_mode == "stacked" and self.layers:
+                        mappable = self.layers[-1].mappable
+                        heights = np.array([r.get_height() for r in mappable.patches])
+                        stacked_bottom = heights if stacked_bottom is None else stacked_bottom + heights
+
+                return self if self._chainable else (self.layers[-1].mappable if self.layers else None)
 
             # Collect active *by dimensions: param_key → coordinate name
             by_dims = {
