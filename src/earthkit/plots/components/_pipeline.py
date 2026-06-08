@@ -244,14 +244,18 @@ def extract_plottables_1D(
 
             x_values = force_minus_180_to_180(x_values)
 
-    # Step 4.2: Auto-fit map extent for geographic scatter/point_cloud when no
-    # domain is set.  Mirrors the 2D pipeline Step 2.5a logic.  Must run after
-    # Step 4.1 so x_values is already in –180..+180.
-    if context == PlotContext.GEOGRAPHIC_1D and subplot.domain is None and source.crs is not None:
+    # Step 4.2: Auto-fit map extent for geographic line/scatter/point_cloud when
+    # no domain is set.  Mirrors the 2D pipeline Step 2.5a logic.  Must run
+    # after Step 4.1 so x_values is already in –180..+180.
+    # When source.crs is None (plain arrays) we fall back to PlateCarree, the
+    # same default used by the longitude-normalisation step above.
+    if context == PlotContext.GEOGRAPHIC_1D and subplot.domain is None:
         try:
             import cartopy.crs as _ccrs
 
             from earthkit.plots.geography import domains as _domains
+
+            _src_crs = source.crs or _ccrs.PlateCarree()
 
             _x_flat = x_values.flatten() if x_values.ndim > 1 else x_values
             _y_flat = y_values.flatten() if y_values.ndim > 1 else y_values
@@ -267,7 +271,7 @@ def extract_plottables_1D(
 
             _domain = _domains.Domain.from_bbox(
                 bbox=[_xmn, _xmx, _ymn, _ymx],
-                source_crs=source.crs,
+                source_crs=_src_crs,
                 target_crs=subplot.crs,
             )
             _bbox_vals = list(_domain.bbox)
